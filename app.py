@@ -1,4 +1,5 @@
 import streamlit as st
+import PyPDF2
 
 st.set_page_config(
     page_title="AI Resume Analyzer",
@@ -7,31 +8,38 @@ st.set_page_config(
 )
 
 st.title("📄 AI Resume Analyzer")
-st.write("Analyze your resume and find the best job role.")
+st.write("Upload your resume and analyze your skills.")
 
 st.divider()
 
-st.subheader("📊 Resume Analysis")
+# Resume Upload
+st.subheader("📤 Upload Your Resume")
 
-col1, col2, col3 = st.columns(3)
+uploaded_file = st.file_uploader(
+    "Upload your Resume (PDF)",
+    type=["pdf"]
+)
 
-with col1:
-    st.metric("ATS Score", "100%")
+if uploaded_file is not None:
 
-with col2:
-    st.metric("Matched Skills", "4")
+    pdf_reader = PyPDF2.PdfReader(uploaded_file)
 
-with col3:
-    st.metric("Recommended Role", "Data Analyst")
+    resume_text = ""
 
-st.divider()
+    for page in pdf_reader.pages:
+        text = page.extract_text()
+        if text:
+            resume_text += text
 
-st.subheader("✅ Your Skills")
+    st.success("✅ Resume uploaded successfully!")
 
-skills = ["Python", "SQL", "Excel", "Power BI"]
+    st.subheader("📄 Resume Preview")
 
-for skill in skills:
-    st.success(skill)
+    st.text_area(
+        "Extracted Resume Text",
+        resume_text,
+        height=300
+    )
 
-st.subheader("💡 Recommendation")
-st.info("Your profile is a strong match for a Data Analyst role.")
+else:
+    st.info("Please upload your PDF resume to start analysis.")
