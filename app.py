@@ -1,5 +1,5 @@
 import streamlit as st
-import PyPDF2
+from PyPDF2 import PdfReader
 
 st.set_page_config(
     page_title="AI Resume Analyzer",
@@ -8,70 +8,87 @@ st.set_page_config(
 )
 
 st.title("📄 AI Resume Analyzer")
-st.write("Upload your resume and get an instant ATS analysis.")
+st.write("Upload your resume and get personalized job recommendations.")
 
 st.divider()
 
 # Job roles and required skills
 job_roles = {
-    "Data Analyst": ["python", "sql", "excel", "power bi", "tableau"],
-    "Data Scientist": ["python", "sql", "machine learning", "pandas", "numpy"],
-    "Python Developer": ["python", "django", "flask", "git", "sql"],
-    "Business Analyst": ["excel", "sql", "power bi", "tableau", "communication"],
-    "ML Engineer": ["python", "machine learning", "numpy", "pandas", "tensorflow"]
+    "Data Analyst": [
+        "python", "sql", "excel", "power bi"
+    ],
+    "Data Scientist": [
+        "python", "sql", "machine learning", "pandas", "numpy"
+    ],
+    "Python Developer": [
+        "python", "django", "flask", "git"
+    ],
+    "Business Analyst": [
+        "excel", "sql", "power bi", "communication"
+    ],
+    "ML Engineer": [
+        "python", "machine learning", "numpy", "pandas", "tensorflow"
+    ]
 }
 
-# Skill aliases
-skill_names = {
-    "python": "Python",
-    "sql": "SQL",
-    "excel": "Excel",
-    "power bi": "Power BI",
-    "tableau": "Tableau",
-    "machine learning": "Machine Learning",
-    "pandas": "Pandas",
-    "numpy": "NumPy",
-    "django": "Django",
-    "flask": "Flask",
-    "git": "Git",
-    "tensorflow": "TensorFlow",
-    "communication": "Communication"
-}
+# Skills that can be detected
+all_skills = [
+    "python",
+    "sql",
+    "excel",
+    "power bi",
+    "machine learning",
+    "pandas",
+    "numpy",
+    "django",
+    "flask",
+    "git",
+    "communication",
+    "tensorflow"
+]
 
-# Upload resume
-st.subheader("📤 Upload Your Resume")
-
+# Upload PDF
 uploaded_file = st.file_uploader(
-    "Upload PDF Resume",
+    "📤 Upload your Resume (PDF)",
     type=["pdf"]
 )
 
 if uploaded_file is not None:
 
+    st.success("✅ Resume uploaded successfully!")
+
     # Read PDF
-    reader = PyPDF2.PdfReader(uploaded_file)
+    pdf_reader = PdfReader(uploaded_file)
 
     resume_text = ""
 
-    for page in reader.pages:
+    for page in pdf_reader.pages:
         text = page.extract_text()
+
         if text:
             resume_text += text + " "
 
     resume_text = resume_text.lower()
 
-    st.success("✅ Resume uploaded successfully!")
-
     # Detect skills
     detected_skills = []
 
-    for skill in skill_names:
+    for skill in all_skills:
         if skill in resume_text:
             detected_skills.append(skill)
 
     st.divider()
 
-    # Find best role
+    # Show detected skills
+    st.subheader("🧠 Detected Skills")
+
+    if detected_skills:
+        for skill in detected_skills:
+            st.success("✅ " + skill.title())
+    else:
+        st.warning("No matching skills found.")
+
+    # Calculate role scores
     results = []
 
     for role, required_skills in job_roles.items():
@@ -82,102 +99,85 @@ if uploaded_file is not None:
             if skill in detected_skills:
                 matched.append(skill)
 
-        score = (len(matched) / len(required_skills)) * 100
+        score = (
+            len(matched) / len(required_skills)
+        ) * 100
+
+        missing = [
+            skill
+            for skill in required_skills
+            if skill not in detected_skills
+        ]
 
         results.append({
             "role": role,
             "score": score,
             "matched": matched,
-            "required": required_skills
+            "missing": missing
         })
 
-    results.sort(key=lambda x: x["score"], reverse=True)
-
-    best_role = results[0]
-
-    # Dashboard
-    st.subheader("📊 Resume Analysis")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric(
-            "ATS Score",
-            f"{best_role['score']:.0f}%"
-        )
-
-    with col2:
-        st.metric(
-            "Matched Skills",
-            len(best_role["matched"])
-        )
-
-    with col3:
-        st.metric(
-            "Recommended Role",
-            best_role["role"]
-        )
+    # Find best role
+    best_role = max(
+        results,
+        key=lambda x: x["score"]
+    )
 
     st.divider()
 
-    # Detected skills
-    st.subheader("✅ Detected Skills")
+    st.subheader("🎯 Best Job Recommendation")
 
-    if detected_skills:
+    st.success(
+        "Recommended Role: " + best_role["role"]
+    )
 
-        for skill in detected_skills:
-            st.success(skill_names[skill])
+    st.metric(
+        "ATS Match Score",
+        f"{best_role['score']:.0f}%"
+    )
+
+    # Matched skills
+    st.subheader("✅ Matched Skills")
+
+    if best_role["matched"]:
+
+        for skill in best_role["matched"]:
+            st.write("✅", skill.title())
 
     else:
-        st.warning("No supported skills detected.")
-
-    st.divider()
+        st.write("No matched skills.")
 
     # Missing skills
-    st.subheader("❌ Skills to Improve")
+    st.subheader("❌ Missing Skills")
 
-    missing_skills = [
-        skill
-        for skill in best_role["required"]
-        if skill not in detected_skills
-    ]
+    if best_role["missing"]:
 
-    if missing_skills:
-
-        for skill in missing_skills:
-            st.warning(skill_names[skill])
+        for skill in best_role["missing"]:
+            st.write("❌", skill.title())
 
     else:
-        st.success("🎉 Excellent! No major skill gaps found.")
 
+        st.success(
+            "🎉 No major missing skills!"
+        )
+
+    # All role scores
     st.divider()
 
-    # Role comparison
-    st.subheader("🎯 Job Role Match")
+    st.subheader("📊 Job Role Match")
 
     for result in results:
 
         st.write(
-            f"**{result['role']} — {result['score']:.0f}%**"
+            f"**{result['role']} — "
+            f"{result['score']:.0f}%**"
         )
 
         st.progress(
             int(result["score"])
         )
 
-    st.divider()
-
-    # Recommendation
-    st.subheader("💡 AI Recommendation")
-
-    st.info(
-        f"Your resume is currently a **{best_role['score']:.0f}% match** "
-        f"for the **{best_role['role']}** role. "
-        f"Focus on the missing skills to improve your ATS score."
-    )
-
 else:
 
     st.info(
-        "👆 Upload a PDF resume above to start the analysis."
+        "👆 Upload a PDF resume to start analysis."
     )
